@@ -17,7 +17,7 @@
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
-                #map_96f18e5e62ec1c1c537904288b44b073 {
+                #map_6814f4f55b1c98ea14ba3c096e0ede13 {
                     position: relative;
                     width: 100.0%;
                     height: 100.0%;
@@ -70,11 +70,11 @@
         window.ultimosBarcos = barcos;
 
         if (!capaMarcadores) {
-            capaMarcadores = L.layerGroup().addTo(map_96f18e5e62ec1c1c537904288b44b073);
+            capaMarcadores = L.layerGroup().addTo(map_6814f4f55b1c98ea14ba3c096e0ede13);
         }
 
         capaMarcadores.clearLayers();
-        var zoom = map_96f18e5e62ec1c1c537904288b44b073.getZoom();
+        var zoom = map_6814f4f55b1c98ea14ba3c096e0ede13.getZoom();
         var tamanio = getTamanioIcono(zoom);
 
         barcos.forEach(function(barco) {
@@ -101,8 +101,18 @@
         });
     }
 
+    function buscarPorMMSI(mmsi, lat, lon) {
+        map_6814f4f55b1c98ea14ba3c096e0ede13.setView([lat, lon], 15);
+        capaMarcadores.eachLayer(function(layer) {
+            var pos = layer.getLatLng();
+            if (Math.abs(pos.lat - lat) < 0.001 && Math.abs(pos.lng - lon) < 0.001) {
+                layer.openPopup();
+            }
+        });
+    }
+
     function enviarBbox() {
-        var bounds = map_96f18e5e62ec1c1c537904288b44b073.getBounds();
+        var bounds = map_6814f4f55b1c98ea14ba3c096e0ede13.getBounds();
         var bbox = [[[
             bounds.getSouth(),
             bounds.getWest()
@@ -113,23 +123,23 @@
         window.location.hash = JSON.stringify(bbox);
     }
 
-    map_96f18e5e62ec1c1c537904288b44b073.on('zoomend', function() {
+    map_6814f4f55b1c98ea14ba3c096e0ede13.on('zoomend', function() {
         actualizarBarcos(window.ultimosBarcos);
         enviarBbox();
     });
 
-    map_96f18e5e62ec1c1c537904288b44b073.on('moveend', enviarBbox);
+    map_6814f4f55b1c98ea14ba3c096e0ede13.on('moveend', enviarBbox);
     </script>
     
     
-            <div class="folium-map" id="map_96f18e5e62ec1c1c537904288b44b073" ></div>
+            <div class="folium-map" id="map_6814f4f55b1c98ea14ba3c096e0ede13" ></div>
         
 </body>
 <script>
     
     
-            var map_96f18e5e62ec1c1c537904288b44b073 = L.map(
-                "map_96f18e5e62ec1c1c537904288b44b073",
+            var map_6814f4f55b1c98ea14ba3c096e0ede13 = L.map(
+                "map_6814f4f55b1c98ea14ba3c096e0ede13",
                 {
                     center: [41.35, 2.16],
                     crs: L.CRS.EPSG3857,
@@ -146,7 +156,7 @@
 
         
     
-            var tile_layer_dd939e01ce596318a7fa8b9d0669a0e4 = L.tileLayer(
+            var tile_layer_e16aa5582ec7e5a6a5794d133d6c01b1 = L.tileLayer(
                 "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
                 {
   "minZoom": 0,
@@ -163,7 +173,7 @@
             );
         
     
-            tile_layer_dd939e01ce596318a7fa8b9d0669a0e4.addTo(map_96f18e5e62ec1c1c537904288b44b073);
+            tile_layer_e16aa5582ec7e5a6a5794d133d6c01b1.addTo(map_6814f4f55b1c98ea14ba3c096e0ede13);
         
 </script>
 </html>

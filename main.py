@@ -12,7 +12,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from dotenv import load_dotenv
 from gestor_barcos import GestorBarcos
-from cliente_ais import conectar
+from cliente_ais import conectar, BBOX_MEDITERRANEO
 
 load_dotenv()
 
@@ -82,6 +82,16 @@ def generar_mapa_base():
         }});
     }}
 
+    function buscarPorMMSI(mmsi, lat, lon) {{
+        {map_name}.setView([lat, lon], 15);
+        capaMarcadores.eachLayer(function(layer) {{
+            var pos = layer.getLatLng();
+            if (Math.abs(pos.lat - lat) < 0.001 && Math.abs(pos.lng - lon) < 0.001) {{
+                layer.openPopup();
+            }}
+        }});
+    }}
+
     function enviarBbox() {{
         var bounds = {map_name}.getBounds();
         var bbox = [[[
@@ -104,14 +114,12 @@ def generar_mapa_base():
     """
 
     mapa.get_root().html.add_child(folium.Element(js))
-
     ruta = os.path.join(BASE_DIR, "mapa.html")
     mapa.save(ruta)
     return ruta
 
 
 def arrancar_websocket(gestor, bbox=None):
-    from cliente_ais import BBOX_MEDITERRANEO
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(conectar(gestor, bbox or BBOX_MEDITERRANEO))
@@ -126,9 +134,11 @@ class MainWindow(QMainWindow):
             QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
         )
 
+        self.FiltrosBarcos.currentTextChanged.connect(self.actualizar_marcadores)
+        self.pushButton.clicked.connect(self.buscar_barco)
+
         self.gestor = GestorBarcos()
 
-        # Arranca el WebSocket inicial con el bbox por defecto
         self.hilo = threading.Thread(
             target=arrancar_websocket,
             args=(self.gestor,),
@@ -136,14 +146,10 @@ class MainWindow(QMainWindow):
         )
         self.hilo.start()
 
-        # Carga el mapa base una sola vez
         ruta_mapa = generar_mapa_base()
         self.webEngineView.setUrl(QUrl.fromLocalFile(ruta_mapa))
-
-        # Detecta cuando el usuario mueve el mapa
         self.webEngineView.urlChanged.connect(self.on_url_changed)
 
-        # Refresca los marcadores cada 10 segundos
         QTimer.singleShot(3000, self.actualizar_marcadores)
         self.timer = QTimer()
         self.timer.timeout.connect(self.actualizar_marcadores)
@@ -169,7 +175,12 @@ class MainWindow(QMainWindow):
 
     def actualizar_marcadores(self):
         barcos = self.gestor.con_posicion()
-        print(f"Actualizando {len(barcos)} barcos")
+        filtro = self.FiltrosBarcos.currentText()
+
+        if filtro != "Todos":
+            barcos = [b for b in barcos if b.tipo_nombre() == filtro]
+
+        print(f"Actualizando {len(barcos)} barcos (filtro: {filtro})")
 
         barcos_json = json.dumps([{
             "mmsi": b.mmsi,
@@ -183,6 +194,21 @@ class MainWindow(QMainWindow):
         } for b in barcos])
 
         self.webEngineView.page().runJavaScript(f"actualizarBarcos({barcos_json});")
+
+    def buscar_barco(self):
+        mmsi_buscado = self.lineEdit.text().strip()
+        if not mmsi_buscado:
+            return
+
+        barcos = self.gestor.con_posicion()
+        barco = next((b for b in barcos if str(b.mmsi) == mmsi_buscado), None)
+
+        if barco:
+            self.webEngineView.page().runJavaScript(
+                f"buscarPorMMSI('{barco.mmsi}', {barco.lat}, {barco.lon});"
+            )
+        else:
+            print(f"Barco con MMSI {mmsi_buscado} no encontrado")
 
 
 if __name__ == "__main__":

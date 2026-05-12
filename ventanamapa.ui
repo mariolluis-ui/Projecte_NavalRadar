@@ -23,10 +23,148 @@
       <height>491</height>
      </rect>
     </property>
+    <property name="minimumSize">
+     <size>
+      <width>711</width>
+      <height>0</height>
+     </size>
+    </property>
+    <property name="maximumSize">
+     <size>
+      <width>711</width>
+      <height>16777215</height>
+     </size>
+    </property>
     <property name="url">
      <url>
       <string>about:blank</string>
      </url>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="FiltrosBarcos">
+    <property name="geometry">
+     <rect>
+      <x>538</x>
+      <y>30</y>
+      <width>181</width>
+      <height>26</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: #2b2b2b;
+    color: yellow
+;
+font: 9pt &quot;8514oem&quot;;</string>
+    </property>
+    <item>
+     <property name="text">
+      <string>Desconocido</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Pesca</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Remolque</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Velero</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Recreo</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Remolcador</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Pasajeros</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Carga</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Petrolero</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QLineEdit" name="lineEdit">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>60</y>
+      <width>191</width>
+      <height>26</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QLineEdit {
+    background-color: #2b2b2b;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 4px;
+}</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>110</x>
+      <y>30</y>
+      <width>151</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QLabel {
+    color: black;
+    font-size: 12px;
+    font-weight: bold;
+}</string>
+    </property>
+    <property name="text">
+     <string>Buscador de MMSI:</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton">
+    <property name="geometry">
+     <rect>
+      <x>330</x>
+      <y>60</y>
+      <width>81</width>
+      <height>26</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton {
+    background-color: #2b2b2b;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QPushButton:hover {
+    background-color: #555;
+}</string>
+    </property>
+    <property name="text">
+     <string>Buscar</string>
     </property>
    </widget>
   </widget>
