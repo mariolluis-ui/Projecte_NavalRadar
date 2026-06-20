@@ -4,14 +4,28 @@ from dataclasses import dataclass
 # Mapa de codigos numericos AIS -> nombre legible del tipo de barco.
 NOMBRE_TIPO = {
     0: "Desconocido",
+    **{i: "Ala en tierra" for i in range(20, 30)},
     30: "Pesca",
     31: "Remolque",
+    32: "Remolque",
+    33: "Dragado",
+    34: "Buceo",
+    35: "Militar",
     36: "Velero",
     37: "Recreo",
+    **{i: "Alta velocidad" for i in range(40, 50)},
+    50: "Practico",
+    51: "Rescate",
     52: "Remolcador",
+    53: "Servicio portuario",
+    54: "Anticontaminacion",
+    55: "Autoridad",
+    58: "Medico",
+    59: "Especial",
     **{i: "Pasajeros" for i in range(60, 70)},
     **{i: "Carga" for i in range(70, 80)},
     **{i: "Petrolero" for i in range(80, 90)},
+    **{i: "Otro" for i in range(90, 100)},
 }
 
 
@@ -41,13 +55,19 @@ class Barco:
         calado: float | None = None,
         imo: int | None = None,
     ):
-        self.tipo = tipo or 0
-        self.destino = destino or None
-        self.calado = calado or None
-        self.imo = imo or None
+        if tipo:
+            self.tipo = tipo
+        if destino:
+            self.destino = destino
+        if calado:
+            self.calado = calado
+        if imo:
+            self.imo = imo
 
     def tipo_nombre(self) -> str:
-        return NOMBRE_TIPO.get(self.tipo, f"Tipo {self.tipo}")
+        if not self.tipo:
+            return "Desconocido"
+        return NOMBRE_TIPO.get(self.tipo, "Otro")
 
     def tiene_posicion(self) -> bool:
         return self.lat is not None and self.lon is not None

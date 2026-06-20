@@ -1,5 +1,2 @@
 websockets
 python-dotenv
-folium
-PyQt6
-PyQt6-WebEngine

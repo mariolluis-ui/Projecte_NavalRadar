@@ -5,14 +5,27 @@ from barco import Barco
 
 # Categorias que coinciden con Barco.tipo_nombre().
 CATEGORIAS = [
+    "Alta velocidad",
+    "Ala en tierra",
+    "Anticontaminacion",
+    "Autoridad",
+    "Buceo",
     "Pasajeros",
     "Carga",
     "Petrolero",
     "Pesca",
+    "Practico",
+    "Rescate",
     "Velero",
     "Recreo",
     "Remolcador",
     "Remolque",
+    "Servicio portuario",
+    "Militar",
+    "Dragado",
+    "Medico",
+    "Especial",
+    "Otro",
     "Desconocido",
 ]
 

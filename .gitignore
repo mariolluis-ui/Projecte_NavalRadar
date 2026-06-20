@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 mapa.html
 barcos.csv
+cache_barcos.json
 .idea/
 .venv/
 venv/

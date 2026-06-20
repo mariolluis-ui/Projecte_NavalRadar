@@ -1,14 +1,12 @@
 import asyncio
-from dotenv import load_dotenv
-from cliente_ais import conectar
-from gestor_barcos import GestorBarcos
 
-# Carga las variables del archivo .env (la API key)
+from dotenv import load_dotenv
+
+from cliente_ais import conectar
+from radar_core import crear_gestor
+
 load_dotenv()
 
-# Creamos el gestor que guardará todos los barcos
-gestor = GestorBarcos()
+gestor = crear_gestor()
 
-# Arrancamos la conexión en tiempo real
 asyncio.run(conectar(gestor, con_resumen=True))
-
