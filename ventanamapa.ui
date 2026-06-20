@@ -13,6 +13,25 @@
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">QComboBox {
+    background-color: #2b2b2b;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QComboBox::drop-down {
+    border: none;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #2b2b2b;
+    color: white;
+    selection-background-color: #555;
+}</string>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QWebEngineView" name="webEngineView">
     <property name="geometry">
@@ -44,21 +63,34 @@
    <widget class="QComboBox" name="FiltrosBarcos">
     <property name="geometry">
      <rect>
-      <x>538</x>
-      <y>30</y>
+      <x>540</x>
+      <y>70</y>
       <width>181</width>
       <height>26</height>
      </rect>
     </property>
     <property name="styleSheet">
-     <string notr="true">background-color: #2b2b2b;
-    color: yellow
-;
-font: 9pt &quot;8514oem&quot;;</string>
+     <string notr="true">QComboBox {
+    background-color: #2b2b2b;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QComboBox::drop-down {
+    border: none;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #2b2b2b;
+    color: white;
+    selection-background-color: #555;
+}</string>
     </property>
     <item>
      <property name="text">
-      <string>Desconocido</string>
+      <string>Todos</string>
      </property>
     </item>
     <item>
@@ -105,8 +137,8 @@ font: 9pt &quot;8514oem&quot;;</string>
    <widget class="QLineEdit" name="lineEdit">
     <property name="geometry">
      <rect>
-      <x>100</x>
-      <y>60</y>
+      <x>130</x>
+      <y>40</y>
       <width>191</width>
       <height>26</height>
      </rect>
@@ -121,31 +153,11 @@ font: 9pt &quot;8514oem&quot;;</string>
 }</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label">
-    <property name="geometry">
-     <rect>
-      <x>110</x>
-      <y>30</y>
-      <width>151</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">QLabel {
-    color: black;
-    font-size: 12px;
-    font-weight: bold;
-}</string>
-    </property>
-    <property name="text">
-     <string>Buscador de MMSI:</string>
-    </property>
-   </widget>
    <widget class="QPushButton" name="pushButton">
     <property name="geometry">
      <rect>
-      <x>330</x>
-      <y>60</y>
+      <x>340</x>
+      <y>40</y>
       <width>81</width>
       <height>26</height>
      </rect>
@@ -165,6 +177,137 @@ QPushButton:hover {
     </property>
     <property name="text">
      <string>Buscar</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="Busquedapaismmsi">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>40</y>
+      <width>89</width>
+      <height>26</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>MMSI</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QComboBox" name="Filtro_site">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>180</y>
+      <width>181</width>
+      <height>26</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QComboBox {
+    background-color: #2b2b2b;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QComboBox::drop-down {
+    border: none;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #2b2b2b;
+    color: white;
+    selection-background-color: #555;
+}</string>
+    </property>
+    <item>
+     <property name="text">
+      <string>Ninguna seleccionada</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Mar Mediterraneo</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Canal de Suez</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Canal de Panamá</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Estrecho de Malaka</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Estrecho de Ormuz</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Mar de China</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>30</y>
+      <width>181</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QLabel {
+    background-color: #2b2b2b;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QLabel::drop-down {
+    border: none;
+}</string>
+    </property>
+    <property name="text">
+     <string>Tipo de barco:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>140</y>
+      <width>181</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QLabel {
+    background-color: #2b2b2b;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QLabel::drop-down {
+    border: none;
+}</string>
+    </property>
+    <property name="text">
+     <string>Localizaciones importantes:</string>
     </property>
    </widget>
   </widget>
