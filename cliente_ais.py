@@ -4,6 +4,7 @@ import os
 import threading
 from datetime import datetime
 
+from ais_adapters import ActualizacionAIS, TIPOS_MENSAJE_AIS, adaptar_mensaje_ais
 from exportador_csv import ARCHIVO_CSV, exportar
 from gestor_barcos import GestorBarcos
 
@@ -12,13 +13,7 @@ URL_AIS = "wss://stream.aisstream.io/v0/stream"
 BBOX_MEDITERRANEO = [[[40.0, 1.0], [42.0, 3.0]]]
 INTERVALO = 5
 TOLERANCIA_CAMBIO_BBOX = 0.0005
-TIPOS_MENSAJE = [
-    "PositionReport",
-    "StandardClassBPositionReport",
-    "ExtendedClassBPositionReport",
-    "ShipStaticData",
-    "StaticDataReport",
-]
+TIPOS_MENSAJE = TIPOS_MENSAJE_AIS
 
 
 async def conectar(
@@ -111,20 +106,12 @@ async def _recibir(ws, gestor: GestorBarcos):
             print(f"[AISStream mensaje no JSON] {str(raw)[:200]}")
             continue
 
-        tipo = msg.get("MessageType", "")
-        if tipo == "PositionReport":
-            _procesar_posicion(msg, gestor)
-        elif tipo == "StandardClassBPositionReport":
-            _procesar_posicion_clase_b(msg, gestor, "StandardClassBPositionReport")
-        elif tipo == "ExtendedClassBPositionReport":
-            _procesar_posicion_clase_b(msg, gestor, "ExtendedClassBPositionReport")
-        elif tipo == "ShipStaticData":
-            _procesar_estatico(msg, gestor)
-        elif tipo == "StaticDataReport":
-            _procesar_static_data_report(msg, gestor)
+        actualizacion = adaptar_mensaje_ais(msg)
+        if actualizacion:
+            _aplicar_actualizacion(actualizacion, gestor)
         elif "error" in msg or "Error" in msg:
             print(f"[AISStream ERROR] {msg}")
-        elif not tipo:
+        elif not msg.get("MessageType", ""):
             print(f"[AISStream mensaje desconocido] {str(msg)[:200]}")
 
 
@@ -161,103 +148,50 @@ def _mostrar_resumen(gestor: GestorBarcos):
 
 
 def _procesar_posicion(msg: dict, gestor: GestorBarcos):
-    meta = msg.get("MetaData", {})
-    interior = msg.get("Message", {}).get("PositionReport", {})
-
-    mmsi = _primer_int(meta, "MMSI", defecto=_a_int(interior.get("UserID")))
-    lat = _primer_float(meta, "latitude", "Latitude", defecto=_a_float(interior.get("Latitude")))
-    lon = _primer_float(meta, "longitude", "Longitude", defecto=_a_float(interior.get("Longitude")))
-    velocidad = _a_float(interior.get("Sog"), defecto=0.0)
-    nombre = str(meta.get("ShipName", "")).strip()
-    tipo = _primer_int(meta, "ShipType", "Type", "TypeOfShipAndCargoType", defecto=0)
-
-    if mmsi is not None and lat is not None and lon is not None:
-        gestor.actualizar_posicion(mmsi, nombre, lat, lon, velocidad, tipo)
+    _aplicar_actualizacion(adaptar_mensaje_ais(_con_tipo_mensaje(msg, "PositionReport")), gestor)
 
 
 def _procesar_posicion_clase_b(msg: dict, gestor: GestorBarcos, clave_mensaje: str):
-    meta = msg.get("MetaData", {})
-    interior = msg.get("Message", {}).get(clave_mensaje, {})
-
-    mmsi = _primer_int(meta, "MMSI", defecto=_a_int(interior.get("UserID")))
-    lat = _primer_float(meta, "latitude", "Latitude", defecto=_a_float(interior.get("Latitude")))
-    lon = _primer_float(meta, "longitude", "Longitude", defecto=_a_float(interior.get("Longitude")))
-    velocidad = _a_float(interior.get("Sog"), defecto=0.0)
-    nombre = str(interior.get("Name", meta.get("ShipName", ""))).strip()
-    tipo = _primer_int(interior, "Type", "ShipType", "TypeOfShipAndCargoType", defecto=0)
-
-    if mmsi is not None and lat is not None and lon is not None:
-        gestor.actualizar_posicion(mmsi, nombre, lat, lon, velocidad, tipo)
+    _aplicar_actualizacion(adaptar_mensaje_ais(_con_tipo_mensaje(msg, clave_mensaje)), gestor)
 
 
 def _procesar_estatico(msg: dict, gestor: GestorBarcos):
-    meta = msg.get("MetaData", {})
-    interior = msg.get("Message", {}).get("ShipStaticData", {})
-
-    mmsi = _a_int(meta.get("MMSI"))
-    nombre = str(interior.get("Name", meta.get("ShipName", ""))).strip()
-    tipo = _primer_int(
-        interior,
-        "Type",
-        "TypeOfShipAndCargoType",
-        "ShipType",
-        "ShipAndCargoType",
-        defecto=0,
-    )
-    destino = str(interior.get("Destination", "")).strip()
-    calado = _a_float(interior.get("MaximumStaticDraught"))
-    imo = _a_int(interior.get("ImoNumber"))
-
-    if mmsi is not None:
-        gestor.actualizar_estatico(mmsi, nombre, tipo, destino, calado, imo)
+    _aplicar_actualizacion(adaptar_mensaje_ais(_con_tipo_mensaje(msg, "ShipStaticData")), gestor)
 
 
 def _procesar_static_data_report(msg: dict, gestor: GestorBarcos):
-    meta = msg.get("MetaData", {})
-    interior = msg.get("Message", {}).get("StaticDataReport", {})
-    report_a = interior.get("ReportA", {}) or {}
-    report_b = interior.get("ReportB", {}) or {}
-
-    mmsi = _primer_int(meta, "MMSI", defecto=_a_int(interior.get("UserID")))
-    nombre = str(report_a.get("Name", meta.get("ShipName", ""))).strip()
-    tipo = _primer_int(report_b, "ShipType", "Type", "TypeOfShipAndCargoType", defecto=0)
-
-    if mmsi is not None:
-        gestor.actualizar_estatico(mmsi, nombre, tipo, destino=None, calado=None, imo=None)
+    _aplicar_actualizacion(adaptar_mensaje_ais(_con_tipo_mensaje(msg, "StaticDataReport")), gestor)
 
 
-def _a_float(valor, defecto=None):
-    if valor in (None, ""):
-        return defecto
-    try:
-        return float(valor)
-    except (TypeError, ValueError):
-        return defecto
+def _aplicar_actualizacion(actualizacion: ActualizacionAIS | None, gestor: GestorBarcos):
+    if actualizacion is None:
+        return
+    if actualizacion.es_posicion:
+        gestor.actualizar_posicion(
+            actualizacion.mmsi,
+            actualizacion.nombre,
+            actualizacion.lat,
+            actualizacion.lon,
+            actualizacion.velocidad,
+            actualizacion.tipo,
+        )
+    if actualizacion.es_estatico:
+        gestor.actualizar_estatico(
+            actualizacion.mmsi,
+            actualizacion.nombre,
+            actualizacion.tipo,
+            actualizacion.destino,
+            actualizacion.calado,
+            actualizacion.imo,
+        )
 
 
-def _a_int(valor, defecto=None):
-    if valor in (None, ""):
-        return defecto
-    try:
-        return int(valor)
-    except (TypeError, ValueError):
-        return defecto
-
-
-def _primer_int(datos: dict, *claves: str, defecto=None):
-    for clave in claves:
-        valor = _a_int(datos.get(clave), defecto=None)
-        if valor is not None:
-            return valor
-    return defecto
-
-
-def _primer_float(datos: dict, *claves: str, defecto=None):
-    for clave in claves:
-        valor = _a_float(datos.get(clave), defecto=None)
-        if valor is not None:
-            return valor
-    return defecto
+def _con_tipo_mensaje(msg: dict, tipo_mensaje: str) -> dict:
+    if msg.get("MessageType") == tipo_mensaje:
+        return msg
+    copia = dict(msg)
+    copia["MessageType"] = tipo_mensaje
+    return copia
 
 
 class ConexionAIS:

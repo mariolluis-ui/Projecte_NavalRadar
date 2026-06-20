@@ -3,7 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ais_adapters import TIPOS_MENSAJE_AIS, adaptar_mensaje_ais
 from barco import Barco
+from barcos_repository import CacheBarcosRepository
 from cliente_ais import (
     _procesar_estatico,
     _procesar_posicion,
@@ -15,7 +17,33 @@ from cliente_ais import (
 from exportador_csv import exportar
 from filtros import Filtros
 from gestor_barcos import GestorBarcos
+from radar_facade import RadarAISFacade
 from radar_core import lineas_barcos_con_tipo, preparar_barcos_mapa
+
+
+class RepositoryMemoria:
+    def __init__(self, datos=None):
+        self.datos = datos or {}
+        self.guardados = None
+
+    def cargar(self):
+        return self.datos
+
+    def guardar(self, datos_estaticos):
+        self.guardados = datos_estaticos.copy()
+
+
+class ConexionFake:
+    def __init__(self):
+        self.bboxes = []
+        self.detener_llamado = False
+
+    def reiniciar(self, bbox):
+        self.bboxes.append(bbox)
+        return True
+
+    def detener(self):
+        self.detener_llamado = True
 
 
 class BarcoTests(unittest.TestCase):
@@ -52,6 +80,23 @@ class GestorTests(unittest.TestCase):
         self.assertEqual(barco.tipo, 70)
         self.assertEqual(barco.tipo_nombre(), "Carga")
 
+    def test_usa_repository_inyectado_para_cache(self):
+        repository = RepositoryMemoria({
+            123: {"nombre": "CACHE", "tipo": 70, "destino": "BCN", "calado": 7.2, "imo": 987},
+        })
+        gestor = GestorBarcos(repository=repository)
+
+        gestor.actualizar_posicion(123, "", 41.0, 2.0, 10.0)
+        barco = gestor.con_posicion()[0]
+
+        self.assertEqual(barco.nombre, "CACHE")
+        self.assertEqual(barco.tipo_nombre(), "Carga")
+
+        gestor.actualizar_estatico(123, "CACHE", 80, "TGN", 8.1, 654)
+
+        self.assertEqual(repository.guardados[123]["tipo"], 80)
+        self.assertEqual(repository.guardados[123]["destino"], "TGN")
+
     def test_recupera_tipo_desde_cache_persistente(self):
         with tempfile.TemporaryDirectory() as tmp:
             ruta_cache = Path(tmp) / "cache_barcos.json"
@@ -79,6 +124,42 @@ class FiltrosTests(unittest.TestCase):
 
 
 class ClienteAISTests(unittest.TestCase):
+    def test_adapter_expone_tipos_ais_soportados(self):
+        self.assertIn("PositionReport", TIPOS_MENSAJE_AIS)
+        self.assertIn("ShipStaticData", TIPOS_MENSAJE_AIS)
+        self.assertIn("StaticDataReport", TIPOS_MENSAJE_AIS)
+
+    def test_adapter_normaliza_position_report(self):
+        actualizacion = adaptar_mensaje_ais({
+            "MessageType": "PositionReport",
+            "MetaData": {"MMSI": "123", "ShipName": " TEST ", "latitude": "41.1", "longitude": "2.2"},
+            "Message": {"PositionReport": {"Sog": "3.5"}},
+        })
+
+        self.assertTrue(actualizacion.es_posicion)
+        self.assertEqual(actualizacion.mmsi, 123)
+        self.assertEqual(actualizacion.nombre, "TEST")
+        self.assertEqual(actualizacion.lat, 41.1)
+        self.assertEqual(actualizacion.lon, 2.2)
+
+    def test_adapter_normaliza_static_data_report(self):
+        actualizacion = adaptar_mensaje_ais({
+            "MessageType": "StaticDataReport",
+            "MetaData": {"MMSI": "456"},
+            "Message": {
+                "StaticDataReport": {
+                    "UserID": 456,
+                    "ReportA": {"Name": "VELA"},
+                    "ReportB": {"ShipType": 36},
+                }
+            },
+        })
+
+        self.assertTrue(actualizacion.es_estatico)
+        self.assertEqual(actualizacion.mmsi, 456)
+        self.assertEqual(actualizacion.nombre, "VELA")
+        self.assertEqual(actualizacion.tipo, 36)
+
     def test_normaliza_bbox_para_aisstream(self):
         bbox = [[[42.0, 3.0], [40.0, 1.0]]]
 
@@ -198,6 +279,25 @@ class ExportadorTests(unittest.TestCase):
         self.assertEqual(filas[2][7], "Con tipo")
 
 
+class RepositoryTests(unittest.TestCase):
+    def test_cache_repository_guarda_y_carga_datos_estaticos(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta_cache = Path(tmp) / "cache_barcos.json"
+            repository = CacheBarcosRepository(ruta_cache)
+            repository.guardar({
+                123: {"nombre": "UNO", "tipo": 70, "destino": "BCN", "calado": "7.2", "imo": "987"},
+                456: {"nombre": "VACIO", "tipo": 0, "destino": None, "calado": None, "imo": None},
+            })
+
+            datos = CacheBarcosRepository(ruta_cache).cargar()
+
+        self.assertIn(123, datos)
+        self.assertNotIn(456, datos)
+        self.assertEqual(datos[123]["tipo"], 70)
+        self.assertEqual(datos[123]["calado"], 7.2)
+        self.assertEqual(datos[123]["imo"], 987)
+
+
 class RadarCoreTests(unittest.TestCase):
     def test_prepara_barcos_para_mapa_con_codigo_tipo(self):
         barco = Barco(123, "MAPA", 41.0, 2.0, 1.5, tipo=70)
@@ -214,6 +314,25 @@ class RadarCoreTests(unittest.TestCase):
         lineas = lineas_barcos_con_tipo([sin_tipo, con_tipo])
 
         self.assertEqual(lineas, ["  456 | CARGA | Carga (70)"])
+
+
+class FacadeTests(unittest.TestCase):
+    def test_facade_oculta_gestor_y_conexion(self):
+        gestor = GestorBarcos()
+        conexion = ConexionFake()
+        facade = RadarAISFacade(gestor=gestor, conexion=conexion)
+
+        bbox = [[[35.8, -6.2], [36.4, -4.8]]]
+        iniciado = facade.iniciar(bbox)
+        gestor.actualizar_posicion(123, "FACADE", 36.0, -5.5, 12.0, 70)
+
+        self.assertTrue(iniciado)
+        self.assertEqual(conexion.bboxes, [bbox])
+        self.assertIn('"mmsi": 123', facade.barcos_mapa_json())
+
+        facade.detener()
+
+        self.assertTrue(conexion.detener_llamado)
 
 
 if __name__ == "__main__":
