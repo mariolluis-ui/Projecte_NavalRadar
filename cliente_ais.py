@@ -11,6 +11,7 @@ from gestor_barcos import GestorBarcos
 URL_AIS = "wss://stream.aisstream.io/v0/stream"
 BBOX_MEDITERRANEO = [[[40.0, 1.0], [42.0, 3.0]]]
 INTERVALO = 5
+TOLERANCIA_CAMBIO_BBOX = 0.0005
 TIPOS_MENSAJE = [
     "PositionReport",
     "StandardClassBPositionReport",
@@ -31,6 +32,7 @@ async def conectar(
     if not api_key:
         raise ValueError("AIS_API_KEY no esta definida en el archivo .env")
 
+    bbox = normalizar_bbox(bbox)
     suscripcion = {
         "APIKey": api_key,
         "BoundingBoxes": bbox,
@@ -55,6 +57,50 @@ async def conectar(
     except Exception as error:
         print(f"Error en la conexion AIS: {type(error).__name__}: {error}")
         raise
+
+
+def normalizar_bbox(bbox: list) -> list:
+    """Convierte un bbox al formato que espera AISStream.
+
+    Formato final: [[[lat_sur, lon_oeste], [lat_norte, lon_este]]]
+    """
+    try:
+        punto_a, punto_b = bbox[0]
+        lat_a = float(punto_a[0])
+        lon_a = float(punto_a[1])
+        lat_b = float(punto_b[0])
+        lon_b = float(punto_b[1])
+    except (TypeError, ValueError, IndexError) as error:
+        raise ValueError(f"Bounding box invalida: {bbox!r}") from error
+
+    sur, norte = sorted((lat_a, lat_b))
+    oeste, este = sorted((lon_a, lon_b))
+
+    if sur < -90 or norte > 90 or oeste < -180 or este > 180:
+        raise ValueError(f"Bounding box fuera de rango: {bbox!r}")
+    if sur == norte or oeste == este:
+        raise ValueError(f"Bounding box sin area: {bbox!r}")
+
+    return [[[sur, oeste], [norte, este]]]
+
+
+def bbox_ha_cambiado(nuevo_bbox: list, bbox_actual: list | None) -> bool:
+    if bbox_actual is None:
+        return True
+
+    nuevo = normalizar_bbox(nuevo_bbox)
+    actual = normalizar_bbox(bbox_actual)
+    for nuevo_punto, actual_punto in zip(nuevo[0], actual[0]):
+        for nuevo_valor, actual_valor in zip(nuevo_punto, actual_punto):
+            if abs(nuevo_valor - actual_valor) > TOLERANCIA_CAMBIO_BBOX:
+                return True
+    return False
+
+
+def describir_bbox(bbox: list) -> str:
+    normalizado = normalizar_bbox(bbox)
+    sw, ne = normalizado[0]
+    return f"SW=({sw[0]:.4f}, {sw[1]:.4f}) NE=({ne[0]:.4f}, {ne[1]:.4f})"
 
 
 async def _recibir(ws, gestor: GestorBarcos):
@@ -222,12 +268,21 @@ class ConexionAIS:
         self._hilo: threading.Thread | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._tarea: asyncio.Task | None = None
+        self.bbox_actual: list | None = None
 
-    def reiniciar(self, bbox: list):
+    def reiniciar(self, bbox: list) -> bool:
+        bbox = normalizar_bbox(bbox)
+        if not bbox_ha_cambiado(bbox, self.bbox_actual):
+            print(f"Bbox sin cambios, se mantiene AISStream en {describir_bbox(bbox)}")
+            return False
+
         self.detener()
         self.gestor.limpiar()
+        self.bbox_actual = bbox
+        print(f"Reiniciando AISStream con bbox {describir_bbox(bbox)}")
         self._hilo = threading.Thread(target=self._ejecutar, args=(bbox,), daemon=True)
         self._hilo.start()
+        return True
 
     def detener(self):
         if self._loop and self._tarea and not self._tarea.done() and not self._loop.is_closed():

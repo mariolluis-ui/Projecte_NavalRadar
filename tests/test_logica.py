@@ -4,7 +4,14 @@ import unittest
 from pathlib import Path
 
 from barco import Barco
-from cliente_ais import _procesar_estatico, _procesar_posicion, _procesar_static_data_report
+from cliente_ais import (
+    _procesar_estatico,
+    _procesar_posicion,
+    _procesar_static_data_report,
+    bbox_ha_cambiado,
+    describir_bbox,
+    normalizar_bbox,
+)
 from exportador_csv import exportar
 from filtros import Filtros
 from gestor_barcos import GestorBarcos
@@ -72,6 +79,25 @@ class FiltrosTests(unittest.TestCase):
 
 
 class ClienteAISTests(unittest.TestCase):
+    def test_normaliza_bbox_para_aisstream(self):
+        bbox = [[[42.0, 3.0], [40.0, 1.0]]]
+
+        self.assertEqual(normalizar_bbox(bbox), [[[40.0, 1.0], [42.0, 3.0]]])
+
+    def test_detecta_cambio_real_de_bbox(self):
+        actual = [[[40.0, 1.0], [42.0, 3.0]]]
+        casi_igual = [[[40.0001, 1.0], [42.0, 3.0]]]
+        diferente = [[[35.8, -6.2], [36.4, -4.8]]]
+
+        self.assertFalse(bbox_ha_cambiado(casi_igual, actual))
+        self.assertTrue(bbox_ha_cambiado(diferente, actual))
+
+    def test_describe_bbox_para_logs(self):
+        self.assertEqual(
+            describir_bbox([[[35.8, -6.2], [36.4, -4.8]]]),
+            "SW=(35.8000, -6.2000) NE=(36.4000, -4.8000)",
+        )
+
     def test_procesa_mensajes_ais_minimos(self):
         gestor = GestorBarcos()
         posicion = {
