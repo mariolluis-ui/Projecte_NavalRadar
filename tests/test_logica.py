@@ -1,0 +1,339 @@
+import csv
+import tempfile
+import unittest
+from pathlib import Path
+
+from ais_adapters import TIPOS_MENSAJE_AIS, adaptar_mensaje_ais
+from barco import Barco
+from barcos_repository import CacheBarcosRepository
+from cliente_ais import (
+    _procesar_estatico,
+    _procesar_posicion,
+    _procesar_static_data_report,
+    bbox_ha_cambiado,
+    describir_bbox,
+    normalizar_bbox,
+)
+from exportador_csv import exportar
+from filtros import Filtros
+from gestor_barcos import GestorBarcos
+from radar_facade import RadarAISFacade
+from radar_core import lineas_barcos_con_tipo, preparar_barcos_mapa
+
+
+class RepositoryMemoria:
+    def __init__(self, datos=None):
+        self.datos = datos or {}
+        self.guardados = None
+
+    def cargar(self):
+        return self.datos
+
+    def guardar(self, datos_estaticos):
+        self.guardados = datos_estaticos.copy()
+
+
+class ConexionFake:
+    def __init__(self):
+        self.bboxes = []
+        self.detener_llamado = False
+
+    def reiniciar(self, bbox):
+        self.bboxes.append(bbox)
+        return True
+
+    def detener(self):
+        self.detener_llamado = True
+
+
+class BarcoTests(unittest.TestCase):
+    def test_barco_sin_posicion_no_cuenta_como_visible(self):
+        barco = Barco(123456789, "SIN POS")
+
+        self.assertFalse(barco.tiene_posicion())
+
+        barco.actualizar_posicion(41.35, 2.16, 12.5)
+
+        self.assertTrue(barco.tiene_posicion())
+
+
+class GestorTests(unittest.TestCase):
+    def test_actualiza_posicion_y_datos_estaticos_del_mismo_mmsi(self):
+        gestor = GestorBarcos()
+
+        gestor.actualizar_posicion(123, "BARCO UNO", 41.0, 2.0, 10.0)
+        gestor.actualizar_estatico(123, "BARCO UNO", 70, "BCN", 7.2, 9876543)
+
+        barco = gestor.con_posicion()[0]
+        self.assertEqual(barco.tipo_nombre(), "Carga")
+        self.assertEqual(barco.destino, "BCN")
+        self.assertEqual(barco.calado, 7.2)
+
+    def test_conserva_datos_estaticos_tras_limpiar_posiciones(self):
+        gestor = GestorBarcos()
+
+        gestor.actualizar_estatico(123, "BARCO UNO", 70, "BCN", 7.2, 9876543)
+        gestor.limpiar()
+        gestor.actualizar_posicion(123, "BARCO UNO", 41.0, 2.0, 10.0)
+
+        barco = gestor.con_posicion()[0]
+        self.assertEqual(barco.tipo, 70)
+        self.assertEqual(barco.tipo_nombre(), "Carga")
+
+    def test_usa_repository_inyectado_para_cache(self):
+        repository = RepositoryMemoria({
+            123: {"nombre": "CACHE", "tipo": 70, "destino": "BCN", "calado": 7.2, "imo": 987},
+        })
+        gestor = GestorBarcos(repository=repository)
+
+        gestor.actualizar_posicion(123, "", 41.0, 2.0, 10.0)
+        barco = gestor.con_posicion()[0]
+
+        self.assertEqual(barco.nombre, "CACHE")
+        self.assertEqual(barco.tipo_nombre(), "Carga")
+
+        gestor.actualizar_estatico(123, "CACHE", 80, "TGN", 8.1, 654)
+
+        self.assertEqual(repository.guardados[123]["tipo"], 80)
+        self.assertEqual(repository.guardados[123]["destino"], "TGN")
+
+    def test_recupera_tipo_desde_cache_persistente(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta_cache = Path(tmp) / "cache_barcos.json"
+            gestor = GestorBarcos(ruta_cache)
+            gestor.actualizar_estatico(123, "BARCO UNO", 70, "BCN", 7.2, 9876543)
+
+            gestor_nuevo = GestorBarcos(ruta_cache)
+            gestor_nuevo.actualizar_posicion(123, "BARCO UNO", 41.0, 2.0, 10.0)
+
+            barco = gestor_nuevo.con_posicion()[0]
+
+        self.assertEqual(barco.tipo, 70)
+        self.assertEqual(barco.tipo_nombre(), "Carga")
+
+
+class FiltrosTests(unittest.TestCase):
+    def test_filtra_por_nombre_destino_y_velocidad(self):
+        barco = Barco(123, "Mediterrani", 41.0, 2.0, 8.0, destino="Barcelona")
+        filtros = Filtros(texto_nombre="medi", texto_destino="bar", velocidad_min=5, velocidad_max=10)
+
+        self.assertTrue(filtros.aplica(barco))
+
+        filtros.velocidad_min = 9
+        self.assertFalse(filtros.aplica(barco))
+
+
+class ClienteAISTests(unittest.TestCase):
+    def test_adapter_expone_tipos_ais_soportados(self):
+        self.assertIn("PositionReport", TIPOS_MENSAJE_AIS)
+        self.assertIn("ShipStaticData", TIPOS_MENSAJE_AIS)
+        self.assertIn("StaticDataReport", TIPOS_MENSAJE_AIS)
+
+    def test_adapter_normaliza_position_report(self):
+        actualizacion = adaptar_mensaje_ais({
+            "MessageType": "PositionReport",
+            "MetaData": {"MMSI": "123", "ShipName": " TEST ", "latitude": "41.1", "longitude": "2.2"},
+            "Message": {"PositionReport": {"Sog": "3.5"}},
+        })
+
+        self.assertTrue(actualizacion.es_posicion)
+        self.assertEqual(actualizacion.mmsi, 123)
+        self.assertEqual(actualizacion.nombre, "TEST")
+        self.assertEqual(actualizacion.lat, 41.1)
+        self.assertEqual(actualizacion.lon, 2.2)
+
+    def test_adapter_normaliza_static_data_report(self):
+        actualizacion = adaptar_mensaje_ais({
+            "MessageType": "StaticDataReport",
+            "MetaData": {"MMSI": "456"},
+            "Message": {
+                "StaticDataReport": {
+                    "UserID": 456,
+                    "ReportA": {"Name": "VELA"},
+                    "ReportB": {"ShipType": 36},
+                }
+            },
+        })
+
+        self.assertTrue(actualizacion.es_estatico)
+        self.assertEqual(actualizacion.mmsi, 456)
+        self.assertEqual(actualizacion.nombre, "VELA")
+        self.assertEqual(actualizacion.tipo, 36)
+
+    def test_normaliza_bbox_para_aisstream(self):
+        bbox = [[[42.0, 3.0], [40.0, 1.0]]]
+
+        self.assertEqual(normalizar_bbox(bbox), [[[40.0, 1.0], [42.0, 3.0]]])
+
+    def test_detecta_cambio_real_de_bbox(self):
+        actual = [[[40.0, 1.0], [42.0, 3.0]]]
+        casi_igual = [[[40.0001, 1.0], [42.0, 3.0]]]
+        diferente = [[[35.8, -6.2], [36.4, -4.8]]]
+
+        self.assertFalse(bbox_ha_cambiado(casi_igual, actual))
+        self.assertTrue(bbox_ha_cambiado(diferente, actual))
+
+    def test_describe_bbox_para_logs(self):
+        self.assertEqual(
+            describir_bbox([[[35.8, -6.2], [36.4, -4.8]]]),
+            "SW=(35.8000, -6.2000) NE=(36.4000, -4.8000)",
+        )
+
+    def test_procesa_mensajes_ais_minimos(self):
+        gestor = GestorBarcos()
+        posicion = {
+            "MessageType": "PositionReport",
+            "MetaData": {"MMSI": "123", "ShipName": " TEST ", "latitude": "41.1", "longitude": "2.2"},
+            "Message": {"PositionReport": {"Sog": "3.5"}},
+        }
+        estatico = {
+            "MessageType": "ShipStaticData",
+            "MetaData": {"MMSI": "123"},
+            "Message": {
+                "ShipStaticData": {
+                    "Name": "TEST",
+                    "Type": "60",
+                    "Destination": "PALMA",
+                    "MaximumStaticDraught": "5.5",
+                    "ImoNumber": "987",
+                }
+            },
+        }
+
+        _procesar_posicion(posicion, gestor)
+        _procesar_estatico(estatico, gestor)
+
+        barco = gestor.con_posicion()[0]
+        self.assertEqual(barco.mmsi, 123)
+        self.assertEqual(barco.tipo_nombre(), "Pasajeros")
+        self.assertEqual(barco.destino, "PALMA")
+
+    def test_procesa_tipo_desde_static_data_report_clase_b(self):
+        gestor = GestorBarcos()
+        posicion = {
+            "MessageType": "PositionReport",
+            "MetaData": {"MMSI": "456", "ShipName": "VELA", "latitude": 41.2, "longitude": 2.3},
+            "Message": {"PositionReport": {"Sog": 4.0}},
+        }
+        estatico = {
+            "MessageType": "StaticDataReport",
+            "MetaData": {"MMSI": "456"},
+            "Message": {
+                "StaticDataReport": {
+                    "UserID": 456,
+                    "ReportA": {"Name": "VELA"},
+                    "ReportB": {"ShipType": 36},
+                }
+            },
+        }
+
+        _procesar_posicion(posicion, gestor)
+        _procesar_static_data_report(estatico, gestor)
+
+        barco = gestor.con_posicion()[0]
+        self.assertEqual(barco.tipo, 36)
+        self.assertEqual(barco.tipo_nombre(), "Velero")
+
+    def test_static_data_report_sin_report_b_no_borra_tipo_previo(self):
+        gestor = GestorBarcos()
+        gestor.actualizar_posicion(456, "VELA", 41.2, 2.3, 4.0)
+        gestor.actualizar_estatico(456, "VELA", 36, None, None, None)
+        estatico_solo_nombre = {
+            "MessageType": "StaticDataReport",
+            "MetaData": {"MMSI": "456"},
+            "Message": {
+                "StaticDataReport": {
+                    "UserID": 456,
+                    "ReportA": {"Name": "VELA NUEVA"},
+                    "ReportB": {},
+                }
+            },
+        }
+
+        _procesar_static_data_report(estatico_solo_nombre, gestor)
+
+        barco = gestor.con_posicion()[0]
+        self.assertEqual(barco.tipo, 36)
+        self.assertEqual(barco.nombre, "VELA NUEVA")
+
+
+class ExportadorTests(unittest.TestCase):
+    def test_exporta_csv_con_barcos_con_y_sin_tipo(self):
+        gestor = GestorBarcos()
+        gestor.actualizar_posicion(123, "CSV", 41.0, 2.0, 1.5)
+        gestor.actualizar_estatico(456, "ESTATICO", 70, "BCN", 7.0, 999)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta = Path(tmp) / "barcos.csv"
+            total = exportar(gestor, ruta)
+
+            self.assertEqual(total, 2)
+            with ruta.open(encoding="utf-8", newline="") as archivo:
+                filas = list(csv.reader(archivo))
+
+        self.assertEqual(filas[1][0], "123")
+        self.assertEqual(filas[1][1], "CSV")
+        self.assertEqual(filas[1][7], "Esperando AIS")
+        self.assertEqual(filas[2][0], "456")
+        self.assertEqual(filas[2][5], "70")
+        self.assertEqual(filas[2][7], "Con tipo")
+
+
+class RepositoryTests(unittest.TestCase):
+    def test_cache_repository_guarda_y_carga_datos_estaticos(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta_cache = Path(tmp) / "cache_barcos.json"
+            repository = CacheBarcosRepository(ruta_cache)
+            repository.guardar({
+                123: {"nombre": "UNO", "tipo": 70, "destino": "BCN", "calado": "7.2", "imo": "987"},
+                456: {"nombre": "VACIO", "tipo": 0, "destino": None, "calado": None, "imo": None},
+            })
+
+            datos = CacheBarcosRepository(ruta_cache).cargar()
+
+        self.assertIn(123, datos)
+        self.assertNotIn(456, datos)
+        self.assertEqual(datos[123]["tipo"], 70)
+        self.assertEqual(datos[123]["calado"], 7.2)
+        self.assertEqual(datos[123]["imo"], 987)
+
+
+class RadarCoreTests(unittest.TestCase):
+    def test_prepara_barcos_para_mapa_con_codigo_tipo(self):
+        barco = Barco(123, "MAPA", 41.0, 2.0, 1.5, tipo=70)
+
+        datos = preparar_barcos_mapa([barco])
+
+        self.assertIn('"tipo": "Carga"', datos)
+        self.assertIn('"tipo_codigo": 70', datos)
+
+    def test_lineas_barcos_con_tipo_ignora_desconocidos(self):
+        con_tipo = Barco(456, "CARGA", tipo=70)
+        sin_tipo = Barco(123, "SIN TIPO")
+
+        lineas = lineas_barcos_con_tipo([sin_tipo, con_tipo])
+
+        self.assertEqual(lineas, ["  456 | CARGA | Carga (70)"])
+
+
+class FacadeTests(unittest.TestCase):
+    def test_facade_oculta_gestor_y_conexion(self):
+        gestor = GestorBarcos()
+        conexion = ConexionFake()
+        facade = RadarAISFacade(gestor=gestor, conexion=conexion)
+
+        bbox = [[[35.8, -6.2], [36.4, -4.8]]]
+        iniciado = facade.iniciar(bbox)
+        gestor.actualizar_posicion(123, "FACADE", 36.0, -5.5, 12.0, 70)
+
+        self.assertTrue(iniciado)
+        self.assertEqual(conexion.bboxes, [bbox])
+        self.assertIn('"mmsi": 123', facade.barcos_mapa_json())
+
+        facade.detener()
+
+        self.assertTrue(conexion.detener_llamado)
+
+
+if __name__ == "__main__":
+    unittest.main()
