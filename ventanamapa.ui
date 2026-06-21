@@ -54,11 +54,6 @@ QComboBox QAbstractItemView {
       <height>16777215</height>
      </size>
     </property>
-    <property name="url">
-     <url>
-      <string>about:blank</string>
-     </url>
-    </property>
    </widget>
    <widget class="QComboBox" name="FiltrosBarcos">
     <property name="geometry">

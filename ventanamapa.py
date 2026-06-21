@@ -36,7 +36,6 @@ class Ui_MainWindow(object):
         self.webEngineView.setGeometry(QtCore.QRect(20, 20, 711, 491))
         self.webEngineView.setMinimumSize(QtCore.QSize(711, 0))
         self.webEngineView.setMaximumSize(QtCore.QSize(711, 16777215))
-        self.webEngineView.setUrl(QtCore.QUrl("about:blank"))
         self.webEngineView.setObjectName("webEngineView")
         self.FiltrosBarcos = QtWidgets.QComboBox(parent=self.centralwidget)
         self.FiltrosBarcos.setGeometry(QtCore.QRect(540, 70, 181, 26))
