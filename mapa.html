@@ -17,7 +17,7 @@
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
-                #map_89f4b65ec06055aeb20b5eaf8bad3dff {
+                #map_693b1d7dc0596e82c708ed7aeb61d8f4 {
                     position: relative;
                     width: 100.0%;
                     height: 100.0%;
@@ -77,11 +77,11 @@
             window.ultimosBarcos = barcos;
 
             if (!capaMarcadores) {
-                capaMarcadores = L.layerGroup().addTo(map_89f4b65ec06055aeb20b5eaf8bad3dff);
+                capaMarcadores = L.layerGroup().addTo(map_693b1d7dc0596e82c708ed7aeb61d8f4);
             }
 
             capaMarcadores.clearLayers();
-            var zoom = map_89f4b65ec06055aeb20b5eaf8bad3dff.getZoom();
+            var zoom = map_693b1d7dc0596e82c708ed7aeb61d8f4.getZoom();
             var tamanio = getTamanioIcono(zoom);
 
             barcos.forEach(function(barco) {
@@ -109,9 +109,9 @@
         }
 
         function actualizarBbox() {
-            if (typeof map_89f4b65ec06055aeb20b5eaf8bad3dff === 'undefined') return;
+            if (typeof map_693b1d7dc0596e82c708ed7aeb61d8f4 === 'undefined') return;
 
-            var bounds = map_89f4b65ec06055aeb20b5eaf8bad3dff.getBounds();
+            var bounds = map_693b1d7dc0596e82c708ed7aeb61d8f4.getBounds();
 
             window.bboxActual = [[[
                 bounds.getSouth(),
@@ -123,12 +123,12 @@
         }
 
         function moverMapa(lat, lon, zoom) {
-            map_89f4b65ec06055aeb20b5eaf8bad3dff.setView([lat, lon], zoom || map_89f4b65ec06055aeb20b5eaf8bad3dff.getZoom());
+            map_693b1d7dc0596e82c708ed7aeb61d8f4.setView([lat, lon], zoom || map_693b1d7dc0596e82c708ed7aeb61d8f4.getZoom());
             setTimeout(actualizarBbox, 300);
         }
 
         function buscarPorMMSI(mmsi, lat, lon) {
-            map_89f4b65ec06055aeb20b5eaf8bad3dff.setView([lat, lon], 15);
+            map_693b1d7dc0596e82c708ed7aeb61d8f4.setView([lat, lon], 15);
             setTimeout(actualizarBbox, 300);
 
             if (!capaMarcadores) return;
@@ -142,12 +142,12 @@
         }
 
         function _initRadar() {
-            map_89f4b65ec06055aeb20b5eaf8bad3dff.on('zoomend', function() {
+            map_693b1d7dc0596e82c708ed7aeb61d8f4.on('zoomend', function() {
                 actualizarBarcos(window.ultimosBarcos);
                 actualizarBbox();
             });
 
-            map_89f4b65ec06055aeb20b5eaf8bad3dff.on('moveend', actualizarBbox);
+            map_693b1d7dc0596e82c708ed7aeb61d8f4.on('moveend', actualizarBbox);
 
             actualizarBbox();
         }
@@ -160,14 +160,14 @@
         </script>
         
     
-            <div class="folium-map" id="map_89f4b65ec06055aeb20b5eaf8bad3dff" ></div>
+            <div class="folium-map" id="map_693b1d7dc0596e82c708ed7aeb61d8f4" ></div>
         
 </body>
 <script>
     
     
-            var map_89f4b65ec06055aeb20b5eaf8bad3dff = L.map(
-                "map_89f4b65ec06055aeb20b5eaf8bad3dff",
+            var map_693b1d7dc0596e82c708ed7aeb61d8f4 = L.map(
+                "map_693b1d7dc0596e82c708ed7aeb61d8f4",
                 {
                     center: [41.35, 2.16],
                     crs: L.CRS.EPSG3857,
@@ -184,7 +184,7 @@
 
         
     
-            var tile_layer_48047705121d1d73fc0c5e75a3d0b8d4 = L.tileLayer(
+            var tile_layer_13c25015437a4bd6a7107e7b4a057b81 = L.tileLayer(
                 "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
                 {
   "minZoom": 0,
@@ -201,7 +201,7 @@
             );
         
     
-            tile_layer_48047705121d1d73fc0c5e75a3d0b8d4.addTo(map_89f4b65ec06055aeb20b5eaf8bad3dff);
+            tile_layer_13c25015437a4bd6a7107e7b4a057b81.addTo(map_693b1d7dc0596e82c708ed7aeb61d8f4);
         
 </script>
 </html>

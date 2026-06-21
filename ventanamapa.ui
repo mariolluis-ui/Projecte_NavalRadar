@@ -137,8 +137,8 @@ QComboBox QAbstractItemView {
    <widget class="QLineEdit" name="lineEdit">
     <property name="geometry">
      <rect>
-      <x>130</x>
-      <y>40</y>
+      <x>230</x>
+      <y>30</y>
       <width>191</width>
       <height>26</height>
      </rect>
@@ -156,8 +156,8 @@ QComboBox QAbstractItemView {
    <widget class="QPushButton" name="pushButton">
     <property name="geometry">
      <rect>
-      <x>340</x>
-      <y>40</y>
+      <x>430</x>
+      <y>30</y>
       <width>81</width>
       <height>26</height>
      </rect>
@@ -182,8 +182,8 @@ QPushButton:hover {
    <widget class="QComboBox" name="Busquedapaismmsi">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>40</y>
+      <x>130</x>
+      <y>30</y>
       <width>89</width>
       <height>26</height>
      </rect>

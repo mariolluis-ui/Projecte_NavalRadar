@@ -3,16 +3,11 @@ import folium
 
 
 class MapaFactory:
-    """Fabrica mapas de folium ya configurados con el JS del radar.
-    Si en el futuro se necesitan distintos estilos de mapa,
-    se añade un método nuevo aquí sin tocar el resto del código."""
-
     def __init__(self, base_dir: str, icon_b64: str):
         self.base_dir = base_dir
         self.icon_b64 = icon_b64
 
     def crear_mapa_mediterraneo(self) -> str:
-        """Mapa por defecto, centrado en Barcelona con tiles CartoDB."""
         return self._construir_mapa(
             location=[41.35, 2.16],
             zoom_start=13,
@@ -20,7 +15,6 @@ class MapaFactory:
         )
 
     def crear_mapa_oscuro(self) -> str:
-        """Variante con tiles oscuros, por si la queréis usar en el futuro."""
         return self._construir_mapa(
             location=[41.35, 2.16],
             zoom_start=13,

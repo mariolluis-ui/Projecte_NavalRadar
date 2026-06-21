@@ -11,9 +11,6 @@ class Zona:
 
 
 class ZonaFactory:
-    """Crea objetos Zona a partir de su nombre.
-    Si en el futuro las zonas vienen de un JSON o una base de datos,
-    solo se cambia esta clase, el resto del código no se entera."""
 
     _ZONAS = {
         "Mar Mediterraneo": (38.0, 15.0, 6),

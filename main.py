@@ -3,13 +3,13 @@ import os
 import json
 import base64
 
-from PyQt6 import uic
 from PyQt6.QtWidgets import QApplication, QMainWindow
 from PyQt6.QtCore import QUrl, QTimer
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from dotenv import load_dotenv
 
+from ventanamapa import Ui_MainWindow
 from cliente_ais import ConexionAIS, BBOX_MEDITERRANEO, bbox_ha_cambiado
 from radar_core import crear_gestor
 from zonas import ZonaFactory
@@ -22,10 +22,10 @@ load_dotenv()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi(os.path.join(BASE_DIR, "ventanamapa.ui"), self)
+        self.setupUi(self)
 
         self.webEngineView.settings().setAttribute(
             QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls,
